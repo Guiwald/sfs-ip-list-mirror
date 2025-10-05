@@ -1,0 +1,46 @@
+# Nom de l'action, visible dans l'interface GitHub
+name: Update SFS IP List
+
+# Déclencheurs : quand lancer l'action ?
+on:
+  # Permet de lancer l'action manuellement depuis l'onglet "Actions" (pour tester)
+  workflow_dispatch:
+  
+  # Planification : une fois par jour à 2h15 du matin (UTC)
+  schedule:
+    - cron: '15 2 * * *'
+
+# Tâches à effectuer
+jobs:
+  update-list:
+    # Utilise la dernière version d'Ubuntu comme machine virtuelle
+    runs-on: ubuntu-latest
+
+    # Séquence des étapes à exécuter
+    steps:
+      # Étape 1: Récupère le code de votre dépôt pour pouvoir y écrire
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Étape 2: Télécharge et décompresse la liste SFS
+      - name: Download and decompress the SFS list
+        run: |
+          curl -sL --retry 3 -A "Mozilla/5.0" https://www.stopforumspam.com/downloads/listed_ip_30_all.gz | gunzip -c > listed_ip_30_all.txt
+
+      # Étape 3: Sauvegarde les changements dans le dépôt
+      - name: Commit and push if there are changes
+        run: |
+          # Configure Git avec un nom et un email génériques
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          
+          # Ajoute le fichier à la "zone de sauvegarde"
+          git add listed_ip_30_all.txt
+          
+          # Crée un "commit" (une sauvegarde) avec la date du jour
+          # Le "|| exit 0" est une astuce : si le fichier n'a pas changé, la commande échoue. 
+          # Cette astuce fait en sorte que l'action soit quand même un succès.
+          git commit -m "Update SFS IP list $(date -u)" || exit 0
+          
+          # Pousse la sauvegarde vers votre dépôt en ligne
+          git push
